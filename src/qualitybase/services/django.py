@@ -36,8 +36,10 @@ venv_exists = utils.venv_exists
 PROJECT_ROOT = utils.PROJECT_ROOT
 PYTHON = utils.PYTHON
 
-# Path to manage.py
-MANAGE_PY = PROJECT_ROOT / "services" / "django" / "manage.py"
+# Path to manage.py - check root first, then services/django/
+_manage_py_root = PROJECT_ROOT / "manage.py"
+_manage_py_services = PROJECT_ROOT / "services" / "django" / "manage.py"
+MANAGE_PY = _manage_py_root if _manage_py_root.exists() else _manage_py_services
 
 
 def task_help() -> bool:
