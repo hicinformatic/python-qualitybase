@@ -15,6 +15,7 @@ Examples:
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import TYPE_CHECKING
 
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 
 
 from qualitybase.services import utils
+from qualitybase.services.dev import env
 
 # Import utility functions
 print_error = utils.print_error
@@ -201,6 +203,15 @@ COMMANDS: dict[str, Callable[[], bool]] = {
 
 def main() -> int:
     """Main entry point."""
+    envfile_path = os.environ.get("ENVFILE_PATH")
+    if envfile_path:
+        from pathlib import Path
+
+        env_file = Path(envfile_path)
+        if not env_file.is_absolute():
+            env_file = (utils.PROJECT_ROOT / envfile_path).resolve()
+        env._load_envfile_from_path(env_file)  # noqa: SLF001
+
     if len(sys.argv) < 2:
         task_help()
         return 0
