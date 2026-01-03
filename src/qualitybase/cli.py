@@ -23,6 +23,9 @@ else:
         func: Callable[[list[str]], bool]
         description: str
 
+# Global context for CLI execution
+_CLI_CONTEXT: dict[str, Path | None] = {"cli_file_path": None}
+
 
 def _get_package_name_from_path(cli_file_path: Path, package_name: str | None = None) -> str:
     """Get package name from file path.
@@ -305,6 +308,9 @@ def cli_main(cli_file_path: Path, argv: Sequence[str] | None = None) -> int:
     import os
     from typing import cast
 
+    # Store CLI context for commands to access
+    _CLI_CONTEXT["cli_file_path"] = cli_file_path
+
     envfile_path = os.environ.get("ENVFILE_PATH")
     if envfile_path:
         try:
@@ -407,10 +413,45 @@ def _discover_commands() -> dict[str, CommandInfo]:
 
 
 def _get_package_name() -> str:
-    """Get package name using default cli file path."""
-    cli_file_path = Path(__file__)
+    """Get package name using CLI context or default cli file path.
+    
+    This function is used by commands to get the package name of the CLI that called them.
+    It uses the CLI context set by cli_main() to determine the correct package.
+    """
+    # Try to get from CLI context first (set by cli_main)
+    cli_file_path = _CLI_CONTEXT.get("cli_file_path")
+    if cli_file_path is None:
+        # Fallback: try to detect from caller stack
+        detected = _get_package_name_from_caller()
+        if isinstance(detected, Path):
+            cli_file_path = detected
+        else:
+            # Last resort: use current file
+            cli_file_path = Path(__file__)
     result: str = _get_package_name_from_path(cli_file_path)
     return result
+
+
+def _get_package_name_from_caller() -> Path | str:
+    """Detect cli.py path from caller stack.
+    
+    Returns:
+        Path to cli.py file if found, otherwise "unknown" string
+    """
+    import inspect
+    frame = inspect.currentframe()
+    qualitybase_cli_path = Path(__file__).resolve()
+    for _ in range(20):
+        if not frame:
+            break
+        frame = frame.f_back
+        if frame:
+            frame_file = frame.f_globals.get("__file__")
+            if frame_file:
+                frame_path = Path(frame_file).resolve()
+                if "cli.py" in frame_file and frame_path != qualitybase_cli_path:
+                    return frame_path
+    return Path(__file__)
 
 
 def main() -> int:
