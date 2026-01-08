@@ -124,8 +124,8 @@ python-qualitybase/
 
 ## Command Execution (ABSOLUTE)
 
-- **Always use**: `./service.py dev <command>` or `python dev.py <command>`
-- **Always use**: `./service.py quality <command>` or `python quality.py <command>`
+- **Always use**: `./service.py dev <command>`
+- **Always use**: `./service.py quality <command>`
 - Never execute commands directly without going through these entry points
 
 ---

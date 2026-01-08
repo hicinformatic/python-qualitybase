@@ -32,7 +32,9 @@ classifiers = [
   "Topic :: Software Development :: Quality Assurance",
   "Topic :: Software Development :: Testing",
 ]
-dependencies = []
+dependencies = [
+    "tabulate>=0.9.0",
+]
 
 [project.scripts]
 qualitybase = "qualitybase.cli:main"

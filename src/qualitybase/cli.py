@@ -73,10 +73,13 @@ def _discover_from_path(commands_path: Path, package_name: str) -> dict[str, Com
 
     try:
         base_package = package_name.rsplit(".", 1)[0] if "." in package_name else package_name
-        base_module = importlib.import_module(f"{base_package}.commands.base")
+        base_module = importlib.import_module(f"{base_package}.commands.base")  # nosec B307
         Command = base_module.Command
     except (ImportError, AttributeError):
-        Command = None
+        try:
+            from qualitybase.commands.base import Command
+        except ImportError:
+            Command = None
 
     for py_file in commands_path.glob("*.py"):
         if py_file.stem == "__init__":
@@ -84,11 +87,11 @@ def _discover_from_path(commands_path: Path, package_name: str) -> dict[str, Com
 
         with suppress(Exception):
             base_package = package_name.rsplit(".", 1)[0] if "." in package_name else package_name
-            module = importlib.import_module(f"{base_package}.commands.{py_file.stem}")
+            module = importlib.import_module(f"{base_package}.commands.{py_file.stem}")  # nosec B307
 
             for name, obj in inspect.getmembers(module, inspect.isfunction):
-                if name.endswith("_command"):
-                    command_name = name[1:-8] if name.startswith("_") else name[:-8]
+                if name.endswith("_command") and not name.startswith("_"):
+                    command_name = name[:-8]
 
                     description = inspect.getdoc(obj) or ""
                     if description:
@@ -102,12 +105,12 @@ def _discover_from_path(commands_path: Path, package_name: str) -> dict[str, Com
             if Command:
                 for name, obj in inspect.getmembers(module):
                     if isinstance(obj, Command):
+                        if name.startswith("_"):
+                            continue
                         if name.endswith("_command"):
                             command_name = name[:-8]
                         elif name.endswith("Command"):
                             command_name = name[:-7].lower()
-                        elif name.startswith("_"):
-                            command_name = name[1:].lower()
                         else:
                             command_name = name.lower()
 
@@ -138,7 +141,7 @@ def _discover_from_package(package: str) -> dict[str, CommandInfo]:
     from pathlib import Path
 
     try:
-        commands_module = importlib.import_module(f"{package}.commands")
+        commands_module = importlib.import_module(f"{package}.commands")  # nosec B307
         commands_path = Path(commands_module.__file__).parent if commands_module.__file__ else Path()
         package_name = commands_module.__package__ if hasattr(commands_module, "__package__") else package
         return _discover_from_path(commands_path, package_name or package)
@@ -405,36 +408,9 @@ def _load_modules():
             return utils
 
 
-def _discover_commands() -> dict[str, CommandInfo]:
-    """Discover commands using default cli file path."""
-    cli_file_path = Path(__file__)
-    result: dict[str, CommandInfo] = discover_commands(cli_file_path)
-    return result
-
-
-def _get_package_name() -> str:
-    """Get package name using CLI context or default cli file path.
-    
-    This function is used by commands to get the package name of the CLI that called them.
-    It uses the CLI context set by cli_main() to determine the correct package.
-    """
-    # Try to get from CLI context first (set by cli_main)
-    cli_file_path = _CLI_CONTEXT.get("cli_file_path")
-    if cli_file_path is None:
-        # Fallback: try to detect from caller stack
-        detected = _get_package_name_from_caller()
-        if isinstance(detected, Path):
-            cli_file_path = detected
-        else:
-            # Last resort: use current file
-            cli_file_path = Path(__file__)
-    result: str = _get_package_name_from_path(cli_file_path)
-    return result
-
-
 def _get_package_name_from_caller() -> Path | str:
     """Detect cli.py path from caller stack.
-    
+
     Returns:
         Path to cli.py file if found, otherwise "unknown" string
     """

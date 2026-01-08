@@ -38,7 +38,7 @@ def task_help() -> bool:
     print("                        Usage: dev update-lib path/to/library")
     print("")
 
-    print_success("Usage: python dev.py <command>")
+    print_success("Usage: ./service.py dev <command>")
     print_success("       ./service.py dev <command>")
     return True
 

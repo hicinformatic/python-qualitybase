@@ -245,4 +245,4 @@ Qualitybase uses a service-based architecture:
 
 ## Development
 
-See `.agentia/rules/` for project rules and guidelines.
+See `docs/` for project rules and guidelines.

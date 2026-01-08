@@ -24,7 +24,7 @@ def task_update_lib() -> bool:
     """Install or update a library from local directory in editable mode.
 
     Usage:
-      python dev.py update-lib <path_to_library>
+      ./service.py dev update-lib <path_to_library>
       ./service.py dev update-lib path/to/lib
 
     The library will be installed in editable mode (-e) so changes are

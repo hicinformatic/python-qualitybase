@@ -53,7 +53,7 @@ def main() -> int:
     try:
         # Dynamic import based on detected package name
         import importlib
-        cli_module = importlib.import_module(f"{package_name}.cli")
+        cli_module = importlib.import_module(f"{package_name}.cli")  # nosec B307
         cli_main = cli_module.main
 
         args = sys.argv[1:] if len(sys.argv) > 1 else []

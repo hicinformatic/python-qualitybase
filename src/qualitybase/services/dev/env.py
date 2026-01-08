@@ -207,7 +207,7 @@ def task_load_envfile() -> bool:
     """Load environment variables from a .env file.
 
     Usage:
-      python dev.py load-envfile <path_to_env_file>
+      ./service.py dev load-envfile <path_to_env_file>
       ./service.py dev load-envfile path/to/.env
 
     Args:
@@ -220,7 +220,7 @@ def task_load_envfile() -> bool:
 
     if not args:
         print_error("No .env file path provided.")
-        print_info("Usage: python dev.py load-envfile <path_to_env_file>")
+        print_info("Usage: ./service.py dev load-envfile <path_to_env_file>")
         print_info("       ./service.py dev load-envfile path/to/.env")
         return False
 

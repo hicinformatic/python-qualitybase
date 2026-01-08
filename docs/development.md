@@ -2,7 +2,7 @@
 
 ### General Rules
 
-- Always execute project tooling through `python dev.py <command>`.
+- Always execute project tooling through `./service.py dev <command>`.
 - Default to English for all code artifacts (comments, docstrings, logging, error strings, documentation snippets, etc.) regardless of the language used in discussions.
 - Keep comments minimal and only when they clarify non-obvious logic.
 - Avoid reiterating what the code already states clearly.

@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""Utility functions for service scripts.
-
-Contains common functions for printing, command execution, and result formatting.
-"""
 
 from __future__ import annotations
 
@@ -15,10 +11,14 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+try:
+    from tabulate import tabulate  # type: ignore[import-untyped]
+except ImportError:
+    tabulate = None
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-# Load .env file if it exists
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _env_file = PROJECT_ROOT / ".env"
 if _env_file.exists():
@@ -29,41 +29,40 @@ if _env_file.exists():
         pass
 
 
-# ANSI color codes
 BLUE = "\033[94m"
 GREEN = "\033[92m"
 RED = "\033[91m"
 YELLOW = "\033[93m"
 CYAN = "\033[96m"
 MAGENTA = "\033[95m"
-NC = "\033[0m"  # No color
+NC = "\033[0m"
 
 if platform.system() == "Windows" and not os.environ.get("ANSICON"):
     BLUE = GREEN = RED = YELLOW = CYAN = MAGENTA = NC = ""
 
 
 def print_info(message: str) -> None:
-    """Print an info message in blue."""
+    """Print an info message."""
     print(f"{BLUE}{message}{NC}")
 
 
 def print_success(message: str) -> None:
-    """Print a success message in green."""
+    """Print a success message."""
     print(f"{GREEN}{message}{NC}")
 
 
 def print_error(message: str) -> None:
-    """Print an error message in red to stderr."""
+    """Print an error message."""
     print(f"{RED}{message}{NC}", file=sys.stderr)
 
 
 def print_warning(message: str) -> None:
-    """Print a warning message in yellow."""
+    """Print a warning message."""
     print(f"{YELLOW}{message}{NC}")
 
 
 def print_header(message: str) -> None:
-    """Print a header message in cyan."""
+    """Print a header message."""
     print(f"{CYAN}{message}{NC}")
 
 
@@ -73,7 +72,6 @@ def print_separator(char: str = "=", length: int = 70) -> None:
 
 
 def _resolve_venv_dir() -> Path:
-    """Find the virtual env directory, preferring .venv over venv."""
     preferred_names = [".venv", "venv"]
     for name in preferred_names:
         candidate = PROJECT_ROOT / name
@@ -94,11 +92,7 @@ def venv_exists() -> bool:
 
 
 def ensure_virtualenv() -> None:
-    """Activate virtual environment if .venv exists.
-
-    Modifies sys.executable, PATH, and sys.path to use venv Python if available.
-    Uses PROJECT_ROOT to find the virtual environment.
-    """
+    """Activate virtual environment if available."""
     venv_dir = PROJECT_ROOT / ".venv"
     if not venv_dir.exists():
         return
@@ -132,17 +126,7 @@ def run_command(
     capture_output: bool = False,
     **kwargs: Any,
 ) -> tuple[bool, str | None]:
-    """Run a command and return (success, output).
-
-    Args:
-        cmd: Command to run
-        check: If True, raise exception on non-zero exit
-        capture_output: If True, capture and return stdout/stderr
-        **kwargs: Additional arguments for subprocess.run
-
-    Returns:
-        Tuple of (success: bool, output: str | None)
-    """
+    """Run a command and return success status and output."""
     printable = " ".join(cmd)
     print_info(f"Running: {printable}")
 
@@ -167,15 +151,11 @@ def run_command(
 
 
 def get_code_directories() -> list[str]:
-    """Get list of code directories to check.
-
-    Returns relative paths from PROJECT_ROOT for better compatibility with tools.
-    """
+    """Get list of code directories to check."""
     code_dirs = []
     for potential_dir in ["src", "."]:
         path = PROJECT_ROOT / potential_dir
         if path.exists():
-            # Find Python packages
             for item in path.iterdir():
                 if (
                     item.is_dir()
@@ -184,18 +164,14 @@ def get_code_directories() -> list[str]:
                 ):
                     init_file = item / "__init__.py"
                     if init_file.exists():
-                        # Return relative path from PROJECT_ROOT
                         code_dirs.append(str(item.relative_to(PROJECT_ROOT)))
-            # If no packages found, use the directory itself if it has Python files
             if not code_dirs and path != PROJECT_ROOT and any(path.glob("*.py")):
                 code_dirs.append(str(path.relative_to(PROJECT_ROOT)))
 
-    # Also check for django_app_example at root level
     django_app = PROJECT_ROOT / "django_app_example"
     if django_app.exists() and django_app.is_dir() and "django_app_example" not in code_dirs:
         code_dirs.append("django_app_example")
 
-    # Fallback to current directory if nothing found
     if not code_dirs:
         code_dirs = ["."]
 
@@ -203,15 +179,7 @@ def get_code_directories() -> list[str]:
 
 
 def build_semgrep_command(semgrep: Path, targets: list[str]) -> list[str]:
-    """Build semgrep command with appropriate configs.
-
-    Args:
-        semgrep: Path to semgrep executable
-        targets: List of target directories to scan
-
-    Returns:
-        Complete semgrep command as list of strings
-    """
+    """Build semgrep command with appropriate configs."""
     semgrep_cmd = [str(semgrep), "scan"]
     semgrep_configs = []
     local_semgrep = PROJECT_ROOT / ".semgrep.yaml"
@@ -231,38 +199,11 @@ def format_results_table(
     title: str | None = None,
     show_status: bool = True,
 ) -> str:
-    """Format results as a table.
+    """Format results as a table."""
+    if not results:
+        return "No results available."
 
-    Args:
-        results: Dictionary of tool names to success status or detailed info
-        title: Optional title for the table
-        show_status: Whether to show status column
-
-    Returns:
-        Formatted table as string
-    """
-    lines = []
-    if title:
-        lines.append(f"\n{title}")
-        lines.append("=" * 70)
-
-    # Determine column widths
-    tool_width = max(len(str(k)) for k in results) + 2
-    if tool_width < 20:
-        tool_width = 20
-
-    status_width = 10 if show_status else 0
-    details_width = 50
-
-    # Header
-    header = f"{'Tool':<{tool_width}}"
-    if show_status:
-        header += f" {'Status':<{status_width}}"
-    header += f" {'Details':<{details_width}}"
-    lines.append(header)
-    lines.append("-" * 70)
-
-    # Rows
+    rows = []
     for tool, result in results.items():
         if isinstance(result, dict):
             status = result.get("status", False)
@@ -275,26 +216,22 @@ def format_results_table(
             status = bool(result)
             details = ""
 
-        row = f"{tool:<{tool_width}}"
+        row_data = {"Tool": tool}
         if show_status:
             status_str = f"{GREEN}✓ PASS{NC}" if status else f"{RED}✗ FAIL{NC}"
-            row += f" {status_str:<{status_width + 9}}"  # +9 for ANSI codes
-        row += f" {details:<{details_width}}"
-        lines.append(row)
+            row_data["Status"] = status_str
+        row_data["Details"] = details
+        rows.append(row_data)
 
-    return "\n".join(lines)
+    table = format_tabulate(rows, empty_message="No results available.")
+
+    if title:
+        return f"\n{title}\n{'=' * 70}\n{table}"
+    return table
 
 
 def format_results_json(results: dict[str, bool | dict[str, Any]]) -> str:
-    """Format results as JSON.
-
-    Args:
-        results: Dictionary of tool names to success status or detailed info
-
-    Returns:
-        Formatted JSON string
-    """
-    # Convert results to JSON-serializable format
+    """Format results as JSON."""
     json_results = {}
     for tool, result in results.items():
         if isinstance(result, dict):
@@ -311,14 +248,7 @@ def print_results(
     format: str = "table",
     show_status: bool = True,
 ) -> None:
-    """Print results in the specified format.
-
-    Args:
-        results: Dictionary of tool names to success status or detailed info
-        title: Optional title for the output
-        format: Output format ('table' or 'json')
-        show_status: Whether to show status column (table format only)
-    """
+    """Print results in the specified format."""
     if format.lower() == "json":
         output = format_results_json(results)
         print(output)
@@ -328,14 +258,7 @@ def print_results(
 
 
 def summarize_results(results: dict[str, bool | dict[str, Any]]) -> dict[str, Any]:
-    """Summarize results into statistics.
-
-    Args:
-        results: Dictionary of tool names to success status or detailed info
-
-    Returns:
-        Dictionary with summary statistics
-    """
+    """Summarize results into statistics."""
     total = len(results)
     passed = 0
     failed = 0
@@ -366,11 +289,7 @@ def summarize_results(results: dict[str, bool | dict[str, Any]]) -> dict[str, An
 
 
 def print_summary(summary: dict[str, Any]) -> None:
-    """Print a summary of results.
-
-    Args:
-        summary: Summary dictionary from summarize_results()
-    """
+    """Print a summary of results."""
     print_separator()
     print_header("Summary")
     print_separator()
@@ -386,14 +305,7 @@ def print_summary(summary: dict[str, Any]) -> None:
 
 
 def load_service_utils() -> Any:
-    """Load utils module after adding project root to sys.path.
-
-    This is a common pattern used across service modules to ensure
-    proper import resolution.
-
-    Returns:
-        The utils module
-    """
+    """Load utils module after adding project root to sys.path."""
     from pathlib import Path
 
     _services_dir = Path(__file__).resolve().parent
@@ -406,19 +318,7 @@ def load_service_utils() -> Any:
 
 
 def run_service_command(command_func: Any, *args: Any, **kwargs: Any) -> int:
-    """Run a service command with standardized error handling.
-
-    This function provides consistent error handling for all service commands,
-    including KeyboardInterrupt and general exception handling.
-
-    Args:
-        command_func: The command function to execute
-        *args: Positional arguments to pass to the command
-        **kwargs: Keyword arguments to pass to the command
-
-    Returns:
-        Exit code: 0 for success, 1 for failure, 130 for KeyboardInterrupt
-    """
+    """Run a service command with standardized error handling."""
     try:
         success = command_func(*args, **kwargs)
         return 0 if success else 1
@@ -434,14 +334,7 @@ def run_service_command(command_func: Any, *args: Any, **kwargs: Any) -> int:
 
 
 def check_venv_required() -> bool:
-    """Check if virtual environment exists, print error if not.
-
-    This is a common pattern used at the start of task functions
-    that require a virtual environment.
-
-    Returns:
-        True if venv exists, False otherwise
-    """
+    """Check if virtual environment exists, print error if not."""
     if not venv_exists():
         print_error("Virtual environment not found. Please create one first.")
         return False
@@ -449,14 +342,7 @@ def check_venv_required() -> bool:
 
 
 def check_github_cli() -> bool:
-    """Check if GitHub CLI (gh) is available.
-
-    This is a common pattern used in publish modules to verify
-    GitHub CLI is installed before attempting to use it.
-
-    Returns:
-        True if GitHub CLI is available, False otherwise
-    """
+    """Check if GitHub CLI is available."""
     import subprocess
 
     gh_result = subprocess.run(
@@ -470,84 +356,43 @@ def check_github_cli() -> bool:
     return True
 
 
-def format_table(
+def format_tabulate(
     data: dict[str, Any] | list[dict[str, Any]],
-    columns: list[dict[str, Any]],
     empty_message: str = "No data available.",
 ) -> str:
-    """Format data as a table.
-
-    Args:
-        data: Dictionary or list of dictionaries to format
-        columns: List of column definitions with 'header', 'width', and 'formatter' keys
-        empty_message: Message to display if data is empty
-
-    Returns:
-        Formatted table as a string
-    """
+    """Format data as a table using tabulate."""
     if not data:
         return empty_message
 
-    # Convert dict to list of dicts if needed
-    if isinstance(data, dict):
-        items = list(data.items())
-        data_list = [{"_key": key, "_value": value} for key, value in items]
-    else:
-        data_list = data
+    if tabulate is None:
+        raise ImportError("tabulate is required. Install it with: pip install tabulate")
 
-    if not data_list:
+    if isinstance(data, dict):
+        rows = []
+        for k, v in data.items():
+            if isinstance(v, dict):
+                rows.append({"key": k, **v})
+            else:
+                rows.append({"key": k, "value": v})
+    else:
+        rows = data
+
+    if not rows:
         return empty_message
 
-    # Build header
-    headers = [col["header"] for col in columns]
-    widths = [col.get("width", 20) for col in columns]
+    if tabulate is None:
+        return empty_message
+    result = tabulate(rows, headers="keys", tablefmt="grid")
+    return str(result)  # type: ignore[no-any-return]
 
-    # Build separator
-    separator = "+" + "+".join("-" * (w + 2) for w in widths) + "+"
 
-    # Build header row
-    header_row = "| " + " | ".join(h.ljust(w) for h, w in zip(headers, widths, strict=False)) + " |"
-
-    # Build data rows
-    rows = [separator, header_row, separator]
-
-    for item in data_list:
-        if isinstance(data, dict) and "_key" in item:
-            # Handle dict case: formatter receives (value, key)
-            row_data = []
-            for col in columns:
-                formatter = col.get("formatter", lambda item, _key: str(item))
-                if "_key" in item:
-                    value = formatter(item["_value"], item["_key"])
-                else:
-                    value = formatter(item, "")
-                row_data.append(str(value)[:col.get("width", 20)].ljust(col.get("width", 20)))
-        else:
-            # Handle list case: formatter receives (item, key) where key is column header
-            row_data = []
-            for col in columns:
-                formatter = col.get("formatter", lambda item, key: str(item.get(key, "")))
-                key = col["header"].lower().replace(" ", "_")
-                value = formatter(item, key)
-                row_data.append(str(value)[:col.get("width", 20)].ljust(col.get("width", 20)))
-        rows.append("| " + " | ".join(row_data) + " |")
-
-    rows.append(separator)
-
-    return "\n".join(rows)
+def snake_to_camel(snake_str):
+    """Convert a snake string to a camel string."""
+    return ''.join(word.capitalize() for word in snake_str.split('_'))
 
 
 def get_quality_common_imports() -> dict[str, Any]:
-    """Get common imports for quality modules.
-
-    This function returns a dictionary with commonly used imports
-    for quality modules to reduce duplication. Modules can use:
-    `common = utils.get_quality_common_imports()` and then access
-    functions via `common['print_info']`, etc.
-
-    Returns:
-        Dictionary with common imports (PROJECT_ROOT, VENV_BIN, print functions, etc.)
-    """
+    """Get common imports for quality modules."""
     return {
         "PROJECT_ROOT": PROJECT_ROOT,
         "VENV_BIN": VENV_BIN,
@@ -561,5 +406,6 @@ def get_quality_common_imports() -> dict[str, Any]:
         "get_code_directories": get_code_directories,
         "run_command": run_command,
         "check_venv_required": check_venv_required,
+        "snake_to_camel": snake_to_camel,
     }
 

@@ -36,7 +36,6 @@ def task_help() -> bool:
     print("  cleanup   Detect unused code, imports, and redundancies (vulture, autoflake, pylint)")
     print("")
     print_success("Usage:")
-    print("  python quality.py <command>")
     print("  ./service.py quality <command>")
     return True
 
@@ -88,7 +87,7 @@ def task_all() -> bool:
 def main() -> int:
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python quality.py <command>")
+        print("Usage: ./service.py quality <command>")
         print("\nCommands:")
         print("  all       Run all quality checks (lint, security, test, complexity, cleanup)")
         print("  lint      Run linting checks (ruff, mypy, pylint, semgrep)")

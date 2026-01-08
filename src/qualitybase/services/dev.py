@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     command = args[0]
     if command not in COMMANDS:
         print_error(f"Unknown command: {command}")
-        print_info("Run `python dev.py help` to list available commands.")
+        print_info("Run `./service.py dev help` to list available commands.")
         return 1
 
     return utils.run_service_command(COMMANDS[command])
