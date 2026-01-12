@@ -66,7 +66,6 @@ def _discover_from_path(commands_path: Path, package_name: str) -> dict[str, Com
     result: dict[str, CommandInfo] = {}
     import importlib
     import inspect
-    from contextlib import suppress
 
     if not commands_path.exists():
         return result
@@ -85,45 +84,44 @@ def _discover_from_path(commands_path: Path, package_name: str) -> dict[str, Com
         if py_file.stem == "__init__":
             continue
 
-        with suppress(Exception):
-            base_package = package_name.rsplit(".", 1)[0] if "." in package_name else package_name
-            module = importlib.import_module(f"{base_package}.commands.{py_file.stem}")  # nosec B307
+        base_package = package_name.rsplit(".", 1)[0] if "." in package_name else package_name
+        module = importlib.import_module(f"{base_package}.commands.{py_file.stem}")  # nosec B307
 
-            for name, obj in inspect.getmembers(module, inspect.isfunction):
-                if name.endswith("_command") and not name.startswith("_"):
-                    command_name = name[:-8]
+        for name, obj in inspect.getmembers(module, inspect.isfunction):
+            if name.endswith("_command") and not name.startswith("_"):
+                command_name = name[:-8]
 
-                    description = inspect.getdoc(obj) or ""
-                    if description:
-                        description = description.split("\n")[0].strip()
+                description = inspect.getdoc(obj) or ""
+                if description:
+                    description = description.split("\n")[0].strip()
+
+                result[command_name] = {
+                    "func": obj,
+                    "description": description,
+                }
+
+        if Command:
+            for name, obj in inspect.getmembers(module):
+                if isinstance(obj, Command):
+                    if name.startswith("_"):
+                        continue
+                    if name.endswith("_command"):
+                        command_name = name[:-8]
+                    elif name.endswith("Command"):
+                        command_name = name[:-7].lower()
+                    else:
+                        command_name = name.lower()
+
+                    description = obj.description or ""
+                    if not description:
+                        description = inspect.getdoc(obj) or ""
+                        if description:
+                            description = description.split("\n")[0].strip()
 
                     result[command_name] = {
                         "func": obj,
                         "description": description,
                     }
-
-            if Command:
-                for name, obj in inspect.getmembers(module):
-                    if isinstance(obj, Command):
-                        if name.startswith("_"):
-                            continue
-                        if name.endswith("_command"):
-                            command_name = name[:-8]
-                        elif name.endswith("Command"):
-                            command_name = name[:-7].lower()
-                        else:
-                            command_name = name.lower()
-
-                        description = obj.description or ""
-                        if not description:
-                            description = inspect.getdoc(obj) or ""
-                            if description:
-                                description = description.split("\n")[0].strip()
-
-                        result[command_name] = {
-                            "func": obj,
-                            "description": description,
-                        }
 
     return result
 
